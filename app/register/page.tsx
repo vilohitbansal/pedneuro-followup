@@ -3,7 +3,27 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 
+function generateWhatsAppMessage(
+    patientName: string,
+    token: string,
+    day: number
+) {
+
+    const link =
+        `https://pedneuro-followup.vercel.app/?token=${token}`;
+
+    return `Dear caregiver of ${patientName},
+
+Please complete the Day ${day} pediatric neurology follow-up questionnaire using the secure link below:
+
+${link}
+
+Thank you.
+AIIMS Pediatric Neurology Follow-up Team`;
+}
+
 export default function RegisterPage() {
+
     const [patientName, setPatientName] =
         useState("");
 
@@ -20,6 +40,7 @@ export default function RegisterPage() {
         useState("");
 
     const handleSubmit = async () => {
+
         const today = new Date();
 
         const t0 = new Date(today);
@@ -30,7 +51,12 @@ export default function RegisterPage() {
         const t90 = new Date(today);
         t90.setDate(today.getDate() + 90);
 
-        const { error } = await supabase
+        // CREATE PATIENT
+
+        const {
+            data: patientData,
+            error: patientError
+        } = await supabase
             .from("patients")
             .insert([
                 {
@@ -60,25 +86,144 @@ export default function RegisterPage() {
                         .toISOString()
                         .split("T")[0],
                 },
-            ]);
+            ])
+            .select()
+            .single();
 
-        if (error) {
-            alert(error.message);
-        } else {
+        if (patientError || !patientData) {
+
             alert(
-                "Patient registered successfully!"
+                patientError?.message
             );
 
-            setPatientName("");
-            setPatientId("");
-            setAddress("");
-            setPhone("");
-            setNotes("");
+            return;
         }
+
+        // GENERATE TOKENS
+
+        const t0Token =
+            crypto.randomUUID();
+
+        const t7Token =
+            crypto.randomUUID();
+
+        const t90Token =
+            crypto.randomUUID();
+
+        // CREATE FOLLOWUPS
+
+        const {
+            error: followupError
+        } = await supabase
+            .from("followups")
+            .insert([
+                {
+                    patient_row_id:
+                        patientData.id,
+
+                    followup_type: "T0",
+
+                    due_date:
+                        t0.toISOString()
+                            .split("T")[0],
+
+                    token: t0Token,
+
+                    completed: false
+                },
+
+                {
+                    patient_row_id:
+                        patientData.id,
+
+                    followup_type: "T7",
+
+                    due_date:
+                        t7.toISOString()
+                            .split("T")[0],
+
+                    token: t7Token,
+
+                    completed: false
+                },
+
+                {
+                    patient_row_id:
+                        patientData.id,
+
+                    followup_type: "T90",
+
+                    due_date:
+                        t90.toISOString()
+                            .split("T")[0],
+
+                    token: t90Token,
+
+                    completed: false
+                }
+            ]);
+
+        if (followupError) {
+
+            alert(
+                followupError.message
+            );
+
+            return;
+        }
+
+        // GENERATE WHATSAPP MESSAGES
+
+        const t0Message =
+            generateWhatsAppMessage(
+                patientName,
+                t0Token,
+                0
+            );
+
+        const t7Message =
+            generateWhatsAppMessage(
+                patientName,
+                t7Token,
+                7
+            );
+
+        const t90Message =
+            generateWhatsAppMessage(
+                patientName,
+                t90Token,
+                90
+            );
+
+        console.log(
+            "T0 MESSAGE:",
+            t0Message
+        );
+
+        console.log(
+            "T7 MESSAGE:",
+            t7Message
+        );
+
+        console.log(
+            "T90 MESSAGE:",
+            t90Message
+        );
+
+        alert(
+            "Patient + followups created successfully!"
+        );
+
+        setPatientName("");
+        setPatientId("");
+        setAddress("");
+        setPhone("");
+        setNotes("");
     };
 
     return (
         <div style={styles.container}>
+
             <h1 style={styles.heading}>
                 Patient Registration
             </h1>
@@ -88,7 +233,9 @@ export default function RegisterPage() {
                 placeholder="Patient Name"
                 value={patientName}
                 onChange={(e) =>
-                    setPatientName(e.target.value)
+                    setPatientName(
+                        e.target.value
+                    )
                 }
             />
 
@@ -97,7 +244,9 @@ export default function RegisterPage() {
                 placeholder="Patient ID"
                 value={patientId}
                 onChange={(e) =>
-                    setPatientId(e.target.value)
+                    setPatientId(
+                        e.target.value
+                    )
                 }
             />
 
@@ -106,7 +255,9 @@ export default function RegisterPage() {
                 placeholder="Address"
                 value={address}
                 onChange={(e) =>
-                    setAddress(e.target.value)
+                    setAddress(
+                        e.target.value
+                    )
                 }
             />
 
@@ -115,7 +266,9 @@ export default function RegisterPage() {
                 placeholder="Phone Number"
                 value={phone}
                 onChange={(e) =>
-                    setPhone(e.target.value)
+                    setPhone(
+                        e.target.value
+                    )
                 }
             />
 
@@ -128,7 +281,9 @@ export default function RegisterPage() {
                 placeholder="Notes"
                 value={notes}
                 onChange={(e) =>
-                    setNotes(e.target.value)
+                    setNotes(
+                        e.target.value
+                    )
                 }
             />
 
@@ -138,6 +293,7 @@ export default function RegisterPage() {
             >
                 REGISTER PATIENT
             </button>
+
         </div>
     );
 }
@@ -146,7 +302,9 @@ const styles: Record<
     string,
     React.CSSProperties
 > = {
+
     container: {
+
         minHeight: "100vh",
 
         padding: 25,
@@ -167,6 +325,7 @@ const styles: Record<
     },
 
     heading: {
+
         marginBottom: 30,
 
         lineHeight: 1.5,
@@ -179,6 +338,7 @@ const styles: Record<
     },
 
     input: {
+
         width: "85%",
 
         maxWidth: 500,
@@ -201,6 +361,7 @@ const styles: Record<
     },
 
     button: {
+
         width: "85%",
 
         maxWidth: 500,
