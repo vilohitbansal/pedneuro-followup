@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
+export const metadata: Metadata = {
 
     title:
         "AIIMS Pediatric Neurology Follow-up",
@@ -34,10 +34,42 @@ export const metadata = {
         siteName:
             "AIIMS Pediatric Neurology Follow-up",
 
+        images: [
+            {
+                url:
+                    "https://pedneuro-followup.vercel.app/opengraph-image.jpg",
+
+                width: 320,
+
+                height: 320,
+
+                alt:
+                    "AIIMS Pediatric Neurology Follow-up",
+            },
+        ],
+
+        locale:
+            "en_US",
+
         type:
             "website",
     },
 
+    twitter: {
+
+        card:
+            "summary_large_image",
+
+        title:
+            "AIIMS Pediatric Neurology Follow-up",
+
+        description:
+            "Secure pediatric neurology follow-up system",
+
+        images: [
+            "https://pedneuro-followup.vercel.app/opengraph-image.png",
+        ],
+    },
 };
 
 export default function RootLayout({
