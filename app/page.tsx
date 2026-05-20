@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import {
+    Suspense,
+    useEffect,
+    useState,
+    useRef
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabase";
 type Language = "en" | "hi" | "pa";
@@ -17,7 +22,7 @@ interface Question {
     audio: Record<Language, string>;
 }
 
-export default function Home() {
+function HomeContent() {
     const [language, setLanguage] =
         useState<Language | null>(null);
 
@@ -1267,3 +1272,14 @@ const styles: Record<
             "0 4px 12px rgba(0,0,0,0.25)"
     },
 };
+export default function Home() {
+
+    return (
+
+        <Suspense fallback={<div>Loading...</div>}>
+
+            <HomeContent />
+
+        </Suspense>
+    );
+}
