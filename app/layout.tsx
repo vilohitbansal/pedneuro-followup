@@ -37,11 +37,10 @@ export const metadata: Metadata = {
         images: [
             {
                 url:
-                    "https://pedneuro-followup.vercel.app/opengraph-image.jpg",
+                    "https://pedneuro-followup.vercel.app/opengraph-image.webp",
 
-                width: 320,
-
-                height: 320,
+                width: 1024,
+                height: 1024,
 
                 alt:
                     "AIIMS Pediatric Neurology Follow-up",
@@ -67,7 +66,7 @@ export const metadata: Metadata = {
             "Secure pediatric neurology follow-up system",
 
         images: [
-            "https://pedneuro-followup.vercel.app/opengraph-image.jpg",
+            "https://pedneuro-followup.vercel.app/opengraph-image.webp",
         ],
     },
 };
