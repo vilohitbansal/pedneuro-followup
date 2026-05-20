@@ -67,7 +67,7 @@ export const metadata: Metadata = {
             "Secure pediatric neurology follow-up system",
 
         images: [
-            "https://pedneuro-followup.vercel.app/opengraph-image.png",
+            "https://pedneuro-followup.vercel.app/opengraph-image.jpg",
         ],
     },
 };
