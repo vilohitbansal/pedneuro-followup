@@ -65,13 +65,11 @@ function HomeContent() {
                     return;
                 }
 
-                const { data, error } =
-                    await supabase
-                        .from("followups")
-                        .select("*")
-                        .eq("token", token)
-                        .single();
-
+                const { data, error } = await supabase
+                    .from("followups")
+                    .select("*, patients(patient_name)")
+                    .eq("token", token)
+                    .single();
                 console.log(
                     "FOLLOWUP DATA:",
                     data
@@ -1048,8 +1046,19 @@ function AudioRecorder({
                 return;
             }
 
+            const safePatientName =
+                followupData.patients.patient_name
+                    .replaceAll(" ", "_");
+
             const fileName =
-                `${Date.now()}.webm`;
+                safePatientName +
+                "_" +
+                followupData.followup_type +
+                "_" +
+                language +
+                "_" +
+                followupData.id +
+                ".webm";
 
             const { error } =
                 await supabase.storage

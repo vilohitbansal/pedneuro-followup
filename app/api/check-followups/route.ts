@@ -151,17 +151,25 @@ Token: ${token}`;
 
     try {
 
-        await client.messages.create({
+        const escalationNumbers = [
+            "whatsapp:+918431615569",
+            "whatsapp:+91SECONDNUMBER"
+        ];
 
-            from:
-                `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+        for (const number of escalationNumbers) {
 
-            to:
-                "whatsapp:+918431615569",
+            await client.messages.create({
 
-            body:
-                reminder,
-        });
+                from:
+                    `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+
+                to:
+                    number,
+
+                body:
+                    reminder,
+            });
+        }
 
         await supabase
             .from("followups")
