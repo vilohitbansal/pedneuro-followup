@@ -199,6 +199,40 @@ export default function RegisterPage() {
             "T0 MESSAGE:",
             t0Message
         );
+        await fetch(
+            "/api/send-whatsapp",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+
+                body: JSON.stringify({
+
+                    to:
+                        phone,
+
+                    message:
+                        t0Message,
+                }),
+            }
+        );
+        await supabase
+            .from("followups")
+            .update({
+                message_sent: true
+            })
+            .eq(
+                "token",
+                t0Token
+            );
+
+        console.log(
+            "T7 MESSAGE:",
+            t7Message
+        );
 
         console.log(
             "T7 MESSAGE:",
