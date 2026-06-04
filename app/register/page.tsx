@@ -1,26 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "../../lib/supabase";
-
-function generateWhatsAppMessage(
-    patientName: string,
-    token: string,
-    day: number
-) {
-
-    const link =
-        `https://pedneuro-followup.vercel.app/?token=${token}`;
-
-    return `Dear caregiver of ${patientName},
-
-Please complete the Day ${day} pediatric neurology follow-up questionnaire using the secure link below:
-
-${link}
-
-Thank you.
-AIIMS Pediatric Neurology Follow-up Team`;
-}
 
 export default function RegisterPage() {
 
@@ -38,211 +18,50 @@ export default function RegisterPage() {
 
     const [notes, setNotes] =
         useState("");
+    const [submitting, setSubmitting] =
+        useState(false);
 
     const handleSubmit = async () => {
 
-        const today = new Date();
+        if (submitting) return;
 
-        const t0 = new Date(today);
+        setSubmitting(true);
 
-        const t7 = new Date(today);
-        t7.setDate(today.getDate() + 7);
-
-        const t90 = new Date(today);
-        t90.setDate(today.getDate() + 90);
-
-        // CREATE PATIENT
-
-        const {
-            data: patientData,
-            error: patientError
-        } = await supabase
-            .from("patients")
-            .insert([
+        const response =
+            await fetch(
+                "/api/enroll-patient",
                 {
-                    patient_name: patientName,
+                    method: "POST",
 
-                    patient_id: patientId,
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
 
-                    address: address,
-
-                    caregiver_phone: phone,
-
-                    notes: notes,
-
-                    discharge_date: today
-                        .toISOString()
-                        .split("T")[0],
-
-                    t0_due: t0
-                        .toISOString()
-                        .split("T")[0],
-
-                    t7_due: t7
-                        .toISOString()
-                        .split("T")[0],
-
-                    t90_due: t90
-                        .toISOString()
-                        .split("T")[0],
-                },
-            ])
-            .select()
-            .single();
-
-        if (patientError || !patientData) {
-
-            alert(
-                patientError?.message
-            );
-
-            return;
-        }
-
-        // GENERATE TOKENS
-
-        const t0Token =
-            crypto.randomUUID();
-
-        const t7Token =
-            crypto.randomUUID();
-
-        const t90Token =
-            crypto.randomUUID();
-
-        // CREATE FOLLOWUPS
-
-        const {
-            error: followupError
-        } = await supabase
-            .from("followups")
-            .insert([
-                {
-                    patient_row_id:
-                        patientData.id,
-
-                    followup_type: "T0",
-
-                    due_date:
-                        t0.toISOString()
-                            .split("T")[0],
-
-                    token: t0Token,
-
-                    completed: false
-                },
-
-                {
-                    patient_row_id:
-                        patientData.id,
-
-                    followup_type: "T7",
-
-                    due_date:
-                        t7.toISOString()
-                            .split("T")[0],
-
-                    token: t7Token,
-
-                    completed: false
-                },
-
-                {
-                    patient_row_id:
-                        patientData.id,
-
-                    followup_type: "T90",
-
-                    due_date:
-                        t90.toISOString()
-                            .split("T")[0],
-
-                    token: t90Token,
-
-                    completed: false
-                }
-            ]);
-
-        if (followupError) {
-
-            alert(
-                followupError.message
-            );
-
-            return;
-        }
-
-        // GENERATE WHATSAPP MESSAGES
-
-        const t0Message =
-            generateWhatsAppMessage(
-                patientName,
-                t0Token,
-                0
-            );
-
-        const t7Message =
-            generateWhatsAppMessage(
-                patientName,
-                t7Token,
-                7
-            );
-
-        const t90Message =
-            generateWhatsAppMessage(
-                patientName,
-                t90Token,
-                90
-            );
-
-        console.log(
-            "T0 MESSAGE:",
-            t0Message
-        );
-        await fetch(
-            "/api/send-whatsapp",
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type":
-                        "application/json",
-                },
-
-                body: JSON.stringify({
-
-                    to:
+                    body: JSON.stringify({
+                        patientName,
+                        patientId,
+                        address,
                         phone,
-
-                    message:
-                        t0Message,
-                }),
-            }
-        );
-        await supabase
-            .from("followups")
-            .update({
-                message_sent: true
-            })
-            .eq(
-                "token",
-                t0Token
+                        notes,
+                    }),
+                }
             );
 
-        console.log(
-            "T7 MESSAGE:",
-            t7Message
-        );
+        const result =
+            await response.json();
 
-        console.log(
-            "T7 MESSAGE:",
-            t7Message
-        );
+        if (!response.ok || !result.success) {
 
-        console.log(
-            "T90 MESSAGE:",
-            t90Message
-        );
+            alert(
+                result.error ||
+                "Patient registration failed"
+            );
+
+            setSubmitting(false);
+
+            return;
+        }
 
         alert(
             "Patient + followups created successfully!"
@@ -253,6 +72,8 @@ export default function RegisterPage() {
         setAddress("");
         setPhone("");
         setNotes("");
+
+        setSubmitting(false);
     };
 
     return (
@@ -323,9 +144,14 @@ export default function RegisterPage() {
 
             <button
                 style={styles.button}
+                disabled={submitting}
                 onClick={handleSubmit}
             >
-                REGISTER PATIENT
+                {
+                    submitting
+                        ? "REGISTERING..."
+                        : "REGISTER PATIENT"
+                }
             </button>
 
         </div>

@@ -4,13 +4,24 @@ import {
     Suspense,
     useEffect,
     useState,
-    useRef
+    useRef,
+    useCallback
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabase";
 type Language = "en" | "hi" | "pa";
 
 type Answer = string;
+
+type FollowupData = {
+    id: string;
+    patient_row_id: string;
+    followup_type: "T0" | "T7" | "T90";
+    patients?: {
+        patient_name?: string;
+        patient_id?: string;
+    };
+};
 
 interface Question {
     id: string;
@@ -51,7 +62,7 @@ function HomeContent() {
         searchParams.get("token");
 
     const [followupData, setFollowupData] =
-        useState<any>(null);
+        useState<FollowupData | null>(null);
 
     useEffect(() => {
 
@@ -67,7 +78,7 @@ function HomeContent() {
 
                 const { data, error } = await supabase
                     .from("followups")
-                    .select("*, patients(patient_name)")
+                    .select("*, patients(patient_name, patient_id)")
                     .eq("token", token)
                     .single();
                 console.log(
@@ -478,7 +489,7 @@ function HomeContent() {
     ];
 
     const current = questions[step];
-    const submitResponses = async (
+    const submitResponses = useCallback(async (
         finalAnswers: Record<string, string>
     ) => {
         if (!followupData) {
@@ -526,24 +537,84 @@ function HomeContent() {
                     terminated: false
                 }
             ])
-            .select();
+            .select()
+            .single();
 
         console.log("DATA:", data);
 
         console.log("ERROR:", error);
+
+
+        if (error) {
+
+            console.error(
+                "RESPONSE SAVE FAILED:",
+                error
+            );
+
+            alert(
+                error.message
+            );
+
+            hasSubmitted.current = false;
+
+            return;
+        }
+
+
         if (data) {
 
-            await supabase
-                .from("followups")
-                .update({
-                    completed: true
-                })
-                .eq(
-                    "id",
-                    followupData.id
+            const { error: followupUpdateError } =
+                await supabase
+                    .from("followups")
+                    .update({
+                        completed: true,
+                        completed_at:
+                            new Date().toISOString()
+                    })
+                    .eq(
+                        "id",
+                        followupData.id
+                    );
+
+
+            if (followupUpdateError) {
+
+                console.error(
+                    "FOLLOWUP UPDATE FAILED:",
+                    followupUpdateError
                 );
+
+                return;
+            }
+
+
+            const { error: eventUpdateError } =
+                await supabase
+                    .from("followup_events")
+                    .update({
+                        completed_boolean: true,
+                        completed_at:
+                            new Date().toISOString(),
+                        status: "completed"
+                    })
+                    .eq(
+                        "followup_id",
+                        followupData.id
+                    );
+
+
+            if (eventUpdateError) {
+
+                console.error(
+                    "EVENT UPDATE FAILED:",
+                    eventUpdateError
+                );
+
+            }
+
         }
-    };
+    }, [followupData, language]);
 
     const handleAnswer = (value: string) => {
         const updatedAnswers = {
@@ -574,6 +645,15 @@ function HomeContent() {
 
         setStep((prev) => prev + 1);
     };
+
+    useEffect(() => {
+        if (
+            step >= questions.length &&
+            !hasSubmitted.current
+        ) {
+            submitResponses(answers);
+        }
+    }, [answers, questions.length, step, submitResponses]);
 
     if (!introFinished) {
 
@@ -840,8 +920,6 @@ function HomeContent() {
 
     if (step >= questions.length) {
 
-        submitResponses(answers);
-
         return (
             <div style={styles.container}>
                 <QuestionAudio
@@ -905,6 +983,7 @@ function HomeContent() {
                 <AudioRecorder
                     language={language}
                     labels={labels}
+                    followupData={followupData}
                     onComplete={(url: string) => {
                         handleAnswer(url);
                     }}
@@ -957,8 +1036,20 @@ function QuestionAudio({
 function AudioRecorder({
     onComplete,
     language,
-    labels
-}: any) {
+    labels,
+    followupData
+}: {
+    onComplete: (url: string) => void;
+    language: Language;
+    labels: {
+        startRecording: Record<Language, string>;
+        stopRecording: Record<Language, string>;
+        recordAgain: Record<Language, string>;
+        submitRecording: Record<Language, string>;
+        noConcerns: Record<Language, string>;
+    };
+    followupData: FollowupData | null;
+}) {
 
     const [recording, setRecording] =
         useState(false);
@@ -1001,9 +1092,14 @@ function AudioRecorder({
         recorder.onstop = () => {
 
             const blob =
-                new Blob(chunks, {
-                    type: "audio/webm"
-                });
+                new Blob(
+                    chunks,
+                    {
+                        type:
+                            chunks[0]?.type ||
+                            "audio/webm"
+                    }
+                );
 
             const url =
                 URL.createObjectURL(blob);
@@ -1011,6 +1107,8 @@ function AudioRecorder({
             setAudioBlob(blob);
 
             setAudioURL(url);
+
+            setRecording(false);   // ADD THIS LINE
 
             stream
                 .getTracks()
@@ -1030,10 +1128,7 @@ function AudioRecorder({
             return;
 
         mediaRecorderRef.current.stop();
-
-        setRecording(false);
     };
-
     const uploadAudio =
         async () => {
 
@@ -1046,19 +1141,45 @@ function AudioRecorder({
                 return;
             }
 
-            const safePatientName =
-                followupData.patients.patient_name
-                    .replaceAll(" ", "_");
+            if (!followupData) {
 
-            const fileName =
-                safePatientName +
-                "_" +
-                followupData.followup_type +
-                "_" +
-                language +
-                "_" +
-                followupData.id +
-                ".webm";
+                alert(
+                    "Follow-up record is still loading"
+                );
+
+                return;
+            }
+
+            const registrationResponse =
+                await fetch(
+                    "/api/audio-submissions",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+                        body: JSON.stringify({
+                            followupId:
+                                followupData.id,
+                            extension:
+                                "webm",
+                            mimeType:
+                                audioBlob.type || "audio/webm",
+                        }),
+                    }
+                );
+
+            const registration =
+                await registrationResponse.json();
+
+            if (!registrationResponse.ok || !registration.success) {
+                alert(
+                    registration.error || "Audio registration failed"
+                );
+
+                return;
+            }
 
             const { error } =
                 await supabase.storage
@@ -1066,8 +1187,15 @@ function AudioRecorder({
                         "audio-recordings"
                     )
                     .upload(
-                        fileName,
-                        audioBlob
+                        registration.storagePath,
+                        audioBlob,
+                        {
+                            contentType:
+                                "audio/webm",
+
+                            upsert:
+                                false
+                        }
                     );
 
             if (error) {
@@ -1081,19 +1209,12 @@ function AudioRecorder({
                 return;
             }
 
-            const { data } =
-                supabase.storage
-                    .from(
-                        "audio-recordings"
-                    )
-                    .getPublicUrl(
-                        fileName
-                    );
-
             onComplete(
-                data.publicUrl
+                registration.storagePath
             );
         };
+
+           
 
     return (
         <div

@@ -1,61 +1,37 @@
 import { NextResponse } from "next/server";
 
-const twilio =
-    require("twilio");
+import { getErrorMessage } from "@/lib/errors";
+import { sendTwilioTemplateMessage } from "@/lib/twilio";
 
-const client =
-    twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-    );
-
-export async function POST(
-    request: Request
-) {
-
+export async function POST(request: Request) {
     try {
-
         const body =
             await request.json();
 
-        const {
-            to,
-            message
-        } = body;
-
         const response =
-            await client.messages.create({
-
-                from:
-                    `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-
-                to:
-                    `whatsapp:${to}`,
-
-                body:
-                    message,
+            await sendTwilioTemplateMessage({
+                to: body.to,
+                recipientType:
+                    body.recipientType || "patient",
+                recipientId:
+                    body.recipientId ?? null,
+                contentSid:
+                    body.contentSid || process.env.TWILIO_TEMPLATE_PATIENT_REMINDER,
+                contentVariables:
+                    body.contentVariables || {},
             });
 
         return NextResponse.json({
-
             success: true,
-
             sid:
                 response.sid,
         });
-
-    } catch (error: any) {
-
-        console.log(
-            error
-        );
-
+    } catch (error: unknown) {
         return NextResponse.json(
             {
                 success: false,
-
                 error:
-                    error.message,
+                    getErrorMessage(error),
             },
             {
                 status: 500,
