@@ -9,10 +9,13 @@ export function getSupabaseAdmin() {
 
     if (!supabaseUrl || !serviceRoleKey) {
         throw new Error(
-            "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"
+            JSON.stringify({
+                hasUrl: !!supabaseUrl,
+                hasServiceKey: !!serviceRoleKey,
+                nodeEnv: process.env.NODE_ENV,
+            })
         );
     }
-
     return createClient(
         supabaseUrl,
         serviceRoleKey,
