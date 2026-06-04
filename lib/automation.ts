@@ -94,7 +94,197 @@ export async function checkPendingFollowupReminders() {
         failed,
     };
 }
+export async function checkMissedFollowups() {
 
+    const supabase =
+        getSupabaseAdmin();
+
+
+    const cutoff =
+        new Date(
+            Date.now() - 24 * 60 * 60 * 1000
+        ).toISOString();
+
+
+
+    const { data: events, error } =
+        await supabase
+            .from("followup_events")
+            .select(`
+                *,
+                patients(
+                    patient_id,
+                    patient_name
+                )
+            `)
+            .eq(
+                "completed_boolean",
+                false
+            )
+            .eq(
+                "status",
+                "sent"
+            )
+            .lte(
+                "last_reminder_sent",
+                cutoff
+            );
+
+
+    if (error) {
+        throw error;
+    }
+
+
+
+    let alerted = 0;
+    let failed = 0;
+
+
+
+    for (const event of events || []) {
+
+
+        const description =
+            `${event.followup_type} follow-up not completed within 24 hours`;
+
+
+
+        const { data: existing } =
+            await supabase
+                .from("grievances")
+                .select("id")
+                .eq(
+                    "patient_id",
+                    event.patient_id
+                )
+                .eq(
+                    "description",
+                    description
+                )
+                .maybeSingle();
+
+
+
+        if (existing) {
+            continue;
+        }
+
+
+
+        const { data: grievance } =
+            await supabase
+                .from("grievances")
+                .insert({
+
+                    patient_id:
+                        event.patient_id,
+
+
+                    description,
+
+
+                    status:
+                        "new",
+
+
+                    assigned_clinician:
+                        "PI",
+
+
+                    pi_alert_sent_boolean:
+                        false
+
+                })
+                .select()
+                .single();
+
+
+
+
+        try {
+
+
+            await sendTwilioTemplateMessage({
+
+                to:
+                    process.env.PI_WHATSAPP_PHONE!,
+
+
+                recipientType:
+                    "pi",
+
+
+                recipientId:
+                    "PI",
+
+
+                contentSid:
+                    process.env.TWILIO_TEMPLATE_PI_ALERT!,
+
+
+                contentVariables: {
+
+                    "1":
+                        event.patients?.patient_id ||
+                        "Unknown"
+
+                }
+
+            });
+
+
+
+            await supabase
+                .from("grievances")
+                .update({
+
+                    pi_alert_sent_boolean:
+                        true,
+
+
+                    pi_alert_time:
+                        new Date().toISOString(),
+
+                    status:
+                        "escalated"
+
+                })
+                .eq(
+                    "id",
+                    grievance.id
+                );
+
+
+            alerted += 1;
+
+
+        } catch {
+
+
+            failed += 1;
+
+
+        }
+
+    }
+
+
+
+    return {
+
+        checked:
+            events?.length || 0,
+
+
+        alerted,
+
+
+        failed
+
+    };
+
+}
 export async function checkUnresolvedGrievances() {
     const supabase =
         getSupabaseAdmin();
