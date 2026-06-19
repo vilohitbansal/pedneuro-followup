@@ -1,9 +1,9 @@
-export type FollowupType = "T0" | "T7" | "T90";
+export type FollowupType = "T0" | "T7" | "T60";
 
 export const followupOffsets: Record<FollowupType, number> = {
     T0: 0,
     T7: 7,
-    T90: 90,
+    T60: 60,
 };
 
 export function addDays(date: Date, days: number) {

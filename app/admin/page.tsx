@@ -250,7 +250,7 @@ export default async function Dashboard({
     const [
         t0,
         t7,
-        t90
+        T60
     ] =
         await Promise.all([
 
@@ -278,7 +278,7 @@ export default async function Dashboard({
 
 
             supabase
-                .from("t90_responses")
+                .from("T60_responses")
                 .select("*")
                 .order(
                     "submitted_at",
@@ -306,9 +306,9 @@ export default async function Dashboard({
         );
 
 
-    const t90Rows =
+    const T60Rows =
         await prepareRows(
-            t90.data || [],
+            T60.data || [],
             supabase
         );
 
@@ -338,9 +338,9 @@ export default async function Dashboard({
 
 
             <ResponseTable
-                title="T90 Responses"
-                rows={t90Rows}
-                error={t90.error?.message}
+                title="T60 Responses"
+                rows={T60Rows}
+                error={T60.error?.message}
             />
 
 

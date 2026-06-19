@@ -44,8 +44,8 @@ export async function POST(request: Request) {
                         toDateOnly(addDays(enrolledAt, 0)),
                     t7_due:
                         toDateOnly(addDays(enrolledAt, 7)),
-                    t90_due:
-                        toDateOnly(addDays(enrolledAt, 90)),
+                    T60_due:
+                        toDateOnly(addDays(enrolledAt, 60)),
                 })
                 .select()
                 .single();

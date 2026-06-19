@@ -16,7 +16,7 @@ type Answer = string;
 type FollowupData = {
     id: string;
     patient_row_id: string;
-    followup_type: "T0" | "T7" | "T90";
+    followup_type: "T0" | "T7" | "T60";
     patients?: {
         patient_name?: string;
         patient_id?: string;
@@ -1232,7 +1232,7 @@ function AudioRecorder({
                     controls
                     src={audioURL}
                     style={{
-                        width: "90%",
+                        width: "60%",
                         maxWidth: 500,
                         marginBottom: 20
                     }}
@@ -1371,7 +1371,7 @@ const styles: Record<
 
         marginBottom: 30,
 
-        maxWidth: 900
+        maxWidth: 600
     },
 
     button: {
