@@ -3,6 +3,20 @@ import { getSupabaseAdmin } from "./supabaseAdmin";
 import { sendTwilioTemplateMessage } from "./twilio";
 
 
+function getTenDigitPhone(phone?: string) {
+
+    if (!phone) {
+        return null;
+    }
+
+    return phone
+        .replace(/\D/g, "")
+        .slice(-10);
+
+}
+
+
+
 export async function checkPendingFollowupReminders() {
 
     const supabase =
@@ -54,6 +68,7 @@ export async function checkPendingFollowupReminders() {
 
     for (const event of events || []) {
 
+
         const phone =
             event.patients?.caregiver_phone;
 
@@ -78,35 +93,31 @@ export async function checkPendingFollowupReminders() {
                 );
 
             continue;
+
         }
 
 
-
         try {
+
 
             await sendTwilioTemplateMessage({
 
                 to:
                     phone,
 
-
                 recipientType:
                     "patient",
-
 
                 recipientId:
                     event.patient_id,
 
-
                 contentSid,
-
 
                 contentVariables: {
 
                     "1":
                         event.patients?.patient_name ||
                         "your child",
-
 
                     "2":
                         buildFollowupUrl(
@@ -118,7 +129,6 @@ export async function checkPendingFollowupReminders() {
             });
 
 
-
             await supabase
                 .from("followup_events")
                 .update({
@@ -126,15 +136,11 @@ export async function checkPendingFollowupReminders() {
                     status:
                         "sent",
 
-
                     reminder_sent_count:
-                        (event.reminder_sent_count || 0)
-                        + 1,
-
+                        (event.reminder_sent_count || 0) + 1,
 
                     last_reminder_sent:
-                        new Date()
-                            .toISOString()
+                        new Date().toISOString()
 
                 })
                 .eq(
@@ -181,6 +187,7 @@ export async function checkPendingFollowupReminders() {
 
 
 
+
 export async function checkMissedFollowups() {
 
 
@@ -190,8 +197,7 @@ export async function checkMissedFollowups() {
 
     const cutoff =
         new Date(
-            Date.now()
-            -
+            Date.now() -
             24 * 60 * 60 * 1000
         ).toISOString();
 
@@ -204,7 +210,8 @@ export async function checkMissedFollowups() {
                 *,
                 patients(
                     patient_id,
-                    patient_name
+                    patient_name,
+                    caregiver_phone
                 )
             `)
             .eq(
@@ -226,13 +233,27 @@ export async function checkMissedFollowups() {
     }
 
 
-
     let alerted = 0;
     let failed = 0;
 
 
 
     for (const followup of followups || []) {
+
+
+        const cleanPhone =
+            getTenDigitPhone(
+                followup.patients?.caregiver_phone
+            );
+
+
+        if (!cleanPhone) {
+
+            failed += 1;
+
+            continue;
+
+        }
 
 
         try {
@@ -243,27 +264,19 @@ export async function checkMissedFollowups() {
                 to:
                     process.env.PI_WHATSAPP_PHONE!,
 
-
                 recipientType:
                     "pi",
-
 
                 recipientId:
                     "PI",
 
-
                 contentSid:
                     process.env.TWILIO_TEMPLATE_PI_ALERT!,
-
 
                 contentVariables: {
 
                     "1":
-                        `${followup.patients?.patient_id}
--
-${followup.patients?.patient_name}
-
-has not completed ${followup.followup_type} follow-up`
+                        cleanPhone
 
                 }
 
@@ -299,15 +312,12 @@ has not completed ${followup.followup_type} follow-up`
     }
 
 
-
     return {
 
         checked:
             followups?.length || 0,
 
-
         alerted,
-
 
         failed
 
@@ -368,15 +378,12 @@ export async function runAutomationChecks() {
         await checkPendingFollowupReminders();
 
 
-
     const missed =
         await checkMissedFollowups();
 
 
-
     const failedMessages =
         await checkFailedWhatsAppMessages();
-
 
 
     return {
